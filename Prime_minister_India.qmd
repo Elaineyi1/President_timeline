@@ -1,0 +1,154 @@
+---
+title: "Graphing the Table of the Prime Ministers in India"
+author: "Boxuan Yi"
+format: pdf
+date: Febuary 3rd, 2024
+bibliography: references.bib
+---
+```{r}
+#| message: false
+#| echo: false
+install.packages("rvest")
+install.packages("xml2")
+install.packages("dplyr")
+install.packages("janitor")
+install.packages("tidyr")
+install.packages("stringr")
+install.packages('knitr')
+install.packages('ggplot2')
+install.packages('forcats')
+```
+
+```{r}
+#| message: false
+#| echo: false
+library(rvest)
+library(xml2)
+library(dplyr)
+library(janitor)
+library(tidyr)
+library(stringr)
+library(knitr)
+library(ggplot2)
+library(forcats)
+```
+
+
+```{r}
+#| include: false
+raw_data <-
+  read_html(
+    "https://en.wikipedia.org/wiki/List_of_prime_ministers_of_India"
+  )
+write_html(raw_data, "pms.html")
+```
+
+```{r}
+#| message: false
+#| echo: false
+raw_data <- read_html("pms.html")
+```
+
+```{r}
+#| include: false
+parse_data_selector_gadget <-
+  raw_data |>
+  html_element(".wikitable") |>
+  html_table()
+
+head(parse_data_selector_gadget)
+```
+
+```{r}
+#| include: false
+parsed_data <-
+  parse_data_selector_gadget |> 
+  clean_names() |> 
+  rename(raw_text = name_born_died_constituency) |>
+  select(raw_text) |> 
+  filter(raw_text != "Name(born – died)Constituency") |> 
+  distinct() 
+```
+
+```{r}
+#| include: false
+initial_clean <-
+  parsed_data |>
+  separate(
+    raw_text, into = c("name", "not_name"), sep = "\\(", extra = "merge",
+  ) |> 
+  mutate(date = str_extract(not_name, "(\\d{4}–\\d{4})"),
+         born = str_extract(not_name, "(\\d{4})"),
+         died = str_extract(not_name, "(?<=–)\\d{4}"))
+
+initial_clean <- initial_clean |> 
+  mutate(date = if_else(name == "H. D. Deve Gowda", "1933 till now", date),
+         date = if_else(name == "Manmohan Singh", "1932 till now", date),
+         date = if_else(name == "Narendra Modi", "1950 till now", date)) |>
+  select(name, date, born, died)
+
+initial_clean$died <- as.integer(initial_clean$died)
+initial_clean$born <- as.integer(initial_clean$born)
+initial_clean
+```
+```{r}
+#| include: false
+cleaned_data <- initial_clean |>
+  mutate(age_at_death = died - born) |>
+  select(name, born, died, age_at_death) |> distinct()
+
+cleaned_data
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| label: tbl-born_died_age
+#| tbl-cap: The Born Year, Died Year and the Age of Death of Prime Ministers in India
+
+cleaned_data |> kable()
+```
+
+```{r}
+#| include: false
+cleaned_data |>
+  head() |>
+  kable(
+    col.names = c("Prime Minister", "Birth year", "Death year", "Age at death")
+    )
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| label: fig-timeline
+#| fig-cap: The Life Timeline of the Prime Ministers in India
+cleaned_data |>
+  mutate(
+    still_alive = if_else(is.na(died), "Yes", "No"),
+    died = if_else(is.na(died), as.integer(2024), died)
+  ) |>
+  mutate(name = as_factor(name)) |>
+  ggplot(
+    aes(x = born, xend = died, y = name, yend = name, color = still_alive)
+    ) +
+  geom_segment() +
+  labs(
+    x = "Year of birth", y = "Prime minister", color = "PM is currently alive"
+    ) +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1") +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
