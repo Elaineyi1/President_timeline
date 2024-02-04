@@ -141,14 +141,3 @@ cleaned_data |>
   theme(legend.position = "bottom")
 ```
 
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
