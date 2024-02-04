@@ -7,4 +7,5 @@ This paper creates a table and a life timeline of the lifespans of all the prime
 In this paper, no LLM was used.
 
 ## Where is the paper
-The paper, the code and the references can be found in the output file
+The paper, the code and the references can be found in the output file.
+The plan for the timeline can be found in the plan file.
