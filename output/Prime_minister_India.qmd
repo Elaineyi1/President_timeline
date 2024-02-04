@@ -1,5 +1,5 @@
 ---
-title: "Graphing the Lifespans of the Prime Ministers in India"
+title: "Graphing the Timeline of Prime Ministers of India"
 author: "Boxuan Yi"
 format: pdf
 date: "3 Febuary 2024"
