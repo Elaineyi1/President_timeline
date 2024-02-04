@@ -1,0 +1,162 @@
+---
+title: "Graphing the Lifespans of the Prime Ministers in India"
+author: "Boxuan Yi"
+format: pdf
+date: "3 Febuary 2024"
+date-format: "D MMMM YYYY"
+thanks: "Code and data in this analysis is available at: https://github.com/Elaineyi1/Prime_Minister_India_timeline"
+number-sections: true
+bibliography: references.bib
+---
+# Data source
+I used web scraping to extract all the data in the table from the Wikipedia page about prime ministers of India [@WIKIPEDIA]. This table includes Portrait, Name (born–die) Constituency, Term of office & mandate Duration in years and days, Other ministerial offices held, Political Party, Government, Head of State. The only variable I utilized was Name (born–die) Constituency. I separated this column to create five variables: name, date (from born year to death year), born (the born year), died (the died year) and age_at_death in R [@r]. Using date, born, died and age_at_death, I created one table and one figure.
+
+This process used packages Dplyr [@rDplyr], Janitor [@rJanitor], ggplot2 [@rGgplot2], Knitr[@rKnitr], Rvest [@rRvest], Xml2 [@rXml2], Tidyr [@rTidyr], Stringr [@rStringr], and Forcats [@rForcats].
+
+# Findings
+There are a total of 15 prime ministers in the dataset. According to @tbl-born_died_age, six of them surpassed the age of 90, including the two who are currently alive. Meanwhile, one prime minister lived less than 50 years, and two lived less than 70 years. Gulzarilal Nanda stands out as the Prime Minister who lived the longest, reaching the age of 100 before his death in 1998. Examining the data on their ages at the time of death, we can tell that the ages at which the Prime Ministers in India passed away vary widely, ranging from the relatively young age of 47 in the case of Rajiv Gandhi to the advanced age of 100 for Gulzarilal Nanda. 
+
+```{r}
+#| message: false
+#| echo: false
+install.packages("rvest")
+install.packages("xml2")
+install.packages("dplyr")
+install.packages("janitor")
+install.packages("tidyr")
+install.packages("stringr")
+install.packages('knitr')
+install.packages('ggplot2')
+install.packages('forcats')
+```
+
+```{r}
+#| message: false
+#| echo: false
+library(rvest)
+library(xml2)
+library(dplyr)
+library(janitor)
+library(tidyr)
+library(stringr)
+library(knitr)
+library(ggplot2)
+library(forcats)
+```
+
+
+```{r}
+#| include: false
+raw_data <-
+  read_html(
+    "https://en.wikipedia.org/wiki/List_of_prime_ministers_of_India"
+  )
+write_html(raw_data, "pms.html")
+```
+
+```{r}
+#| message: false
+#| echo: false
+raw_data <- read_html("pms.html")
+```
+
+```{r}
+#| include: false
+parse_data_selector_gadget <-
+  raw_data |>
+  html_element(".wikitable") |>
+  html_table()
+
+head(parse_data_selector_gadget)
+```
+
+```{r}
+#| include: false
+parsed_data <-
+  parse_data_selector_gadget |> 
+  clean_names() |> 
+  rename(raw_text = name_born_died_constituency) |>
+  select(raw_text) |> 
+  filter(raw_text != "Name(born – died)Constituency") |> 
+  distinct() 
+```
+
+```{r}
+#| include: false
+initial_clean <-
+  parsed_data |>
+  separate(
+    raw_text, into = c("name", "not_name"), sep = "\\(", extra = "merge",
+  ) |> 
+  mutate(date = str_extract(not_name, "(\\d{4}–\\d{4})"),
+         born = str_extract(not_name, "(\\d{4})"),
+         died = str_extract(not_name, "(?<=–)\\d{4}"))
+
+initial_clean <- initial_clean |> 
+  mutate(date = if_else(name == "H. D. Deve Gowda", "1933 till now", date),
+         date = if_else(name == "Manmohan Singh", "1932 till now", date),
+         date = if_else(name == "Narendra Modi", "1950 till now", date)) |>
+  select(name, date, born, died)
+
+initial_clean$died <- as.integer(initial_clean$died)
+initial_clean$born <- as.integer(initial_clean$born)
+initial_clean
+```
+```{r}
+#| include: false
+cleaned_data <- initial_clean |>
+  mutate(age_at_death = died - born) |>
+  select(name, born, died, age_at_death) |> distinct()
+
+cleaned_data
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| label: tbl-born_died_age
+#| tbl-cap: The Birth Year, Death Year and the Age of Death of Prime Ministers of India
+
+cleaned_data |> kable()
+```
+
+```{r}
+#| include: false
+cleaned_data |>
+  head() |>
+  kable(
+    col.names = c("Prime Minister", "Birth year", "Death year", "Age at death")
+    )
+```
+
+```{r}
+#| message: false
+#| echo: false
+#| label: fig-timeline
+#| fig-cap: The Life Timeline of the Prime Ministers in India
+cleaned_data |>
+  mutate(
+    still_alive = if_else(is.na(died), "Yes", "No"),
+    died = if_else(is.na(died), as.integer(2024), died)
+  ) |>
+  mutate(name = as_factor(name)) |>
+  ggplot(
+    aes(x = born, xend = died, y = name, yend = name, color = still_alive)
+    ) +
+  geom_segment() +
+  labs(
+    x = "Year of birth", y = "Prime minister", color = "PM is currently alive"
+    ) +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1") +
+  theme(legend.position = "bottom")
+```
+
+@fig-timeline visualizes the lifespans of the prime ministers and illustrates the overlap in their lifetimes. Red lines represent the prime ministers who have passed away, while the blue lines represent that these prime ministers are still alive. @fig-timeline reveals that Charan Singh and Morarji Desai have relatively extended lines, indicating prolonged lifetimes compared to the prime ministers before and after them. Since the sequence in figure 1 is based on the their terms, we can see Chandra Shekhar, Vishwanath Pratap Singh and Rajiv Gandhi assumed the role of prime minister at a relatively young age.
+
+# Discussions
+Creating the variables — name, date, born, died and age_at_death took longer than I expected. The need to separate columns and employ ‘digit’ methods added an extra layer of complexity. However, the process became fun when I created a timeline visualizing the lifespan of the prime ministers and how their lifetimes overlap. The resulting horizontal timeline representing birth and death years of the prime ministers is very clear, with different colours indicating whether the prime minister is currently alive or not. 
+Reflecting on the experience, what I would do differently next time is to combine some of the ‘mutate’ statements to reduce redundancy. If I work on the prime minister data for another country with more prime ministers, I would classify them based on gender and age when they became prime minister to see how these factors might influence their lifespan. Moreover, if presented with a dataset containing prime ministers from another country, particularly one with a larger pool of leaders, I would consider classifying them based on gender and age at the commencement of their prime ministership. Such an analysis could explore additional insights into the potential influence of these factors on their lifespan, making the paper more informative.
+
+\newpage
+# References
